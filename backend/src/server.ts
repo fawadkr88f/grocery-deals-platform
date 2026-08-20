@@ -50,7 +50,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   });
 });
 
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   app.listen(SERVER_CONFIG.port, () => {
     console.log(`🛒 Local Grocery Deals Backend running on http://localhost:${SERVER_CONFIG.port}`);
   });

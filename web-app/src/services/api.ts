@@ -1,7 +1,9 @@
 import { ProductDeal } from '../types';
 import { FALLBACK_LOCATIONS, FALLBACK_DEALS_CATALOG, calculateDistance } from './fallbackData';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+  ? '/api'
+  : (import.meta.env.VITE_API_URL || 'http://localhost:4000/api');
 
 export async function searchLocations(query: string) {
   const cleanQuery = query.trim().toLowerCase();
