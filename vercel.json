@@ -1,12 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "cd web-app && npm install && npm run build",
+  "buildCommand": "npm run build --workspace=web-app",
   "outputDirectory": "web-app/dist",
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/index"
-    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
