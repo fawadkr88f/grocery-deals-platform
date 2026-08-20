@@ -1,0 +1,16 @@
+{
+  "name": "Grocery Deals & Price Intelligence",
+  "short_name": "Grocery Deals",
+  "description": "Find supermarket discounts and compare prices within your radius",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#059669",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
