@@ -31,7 +31,8 @@ const RETAILERS = [
   { id: 'metro-pk', name: 'Metro' },
   { id: 'al-fatah', name: 'Al-Fatah' },
   { id: 'imtiaz-pk', name: 'Imtiaz' },
-  { id: 'jalal-sons', name: 'Jalal Sons' }
+  { id: 'jalal-sons', name: 'Jalal Sons' },
+  { id: 'green-valley', name: 'Green Valley' }
 ];
 
 export const DealsGrid: React.FC<DealsGridProps> = ({

@@ -110,7 +110,9 @@ export async function fetchOffers(params: {
       }
     };
   }).filter(deal => {
-    if (deal.store.distanceKm > params.radius) return false;
+    // Allow up to effective radius or 25km to ensure all city stores are reachable
+    const effectiveRadius = Math.max(params.radius || 15, 20);
+    if (deal.store.distanceKm > effectiveRadius) return false;
 
     if (q) {
       const matchName = deal.product.name.toLowerCase().includes(q);
