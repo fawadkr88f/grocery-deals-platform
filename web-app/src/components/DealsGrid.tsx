@@ -1,6 +1,19 @@
 import React from 'react';
-import { ExternalLink, Navigation, CheckCircle2, Plus, ArrowUpDown, Store } from 'lucide-react';
+import { ExternalLink, Navigation, CheckCircle2, Plus, ArrowUpDown, Store, Clock } from 'lucide-react';
 import { ProductDeal, FilterState } from '../types';
+
+function formatTime(dateStr?: string): string {
+  if (!dateStr) return 'Live Feed';
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return isToday ? `Today, ${time}` : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`;
+  } catch {
+    return 'Live Feed';
+  }
+}
 
 interface DealsGridProps {
   deals: ProductDeal[];
@@ -253,44 +266,61 @@ export const DealsGrid: React.FC<DealsGridProps> = ({
                   </div>
                 </div>
 
-                {/* Footer Action Bar */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1 text-[10px] text-slate-400">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{offer.verificationStatus === 'verified_retailer' ? 'Verified Feed' : 'Catalog Offer'}</span>
+                {/* Footer Action Bar with Fetched Timestamp */}
+                <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-1 text-[10.5px]">
+                    <div className="flex items-center gap-1.5 text-slate-600 font-semibold">
+                      <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Fetched: <strong className="text-slate-900 font-bold">{formatTime(offer.lastVerified)}</strong></span>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-slate-400">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>{offer.verificationStatus === 'verified_retailer' ? 'Verified Feed' : 'Catalog Offer'}</span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => onToggleCompare(deal)}
-                      className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
-                        isCompared
-                          ? 'bg-amber-100 text-amber-800 border-amber-300'
-                          : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {isCompared ? 'Compared' : '+ Compare'}
-                    </button>
-
-                    <button
-                      onClick={() => onAddToList(product.name)}
-                      className="text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-lg transition-colors flex items-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Basket</span>
-                    </button>
-
-                    {offer.sourceUrl && (
-                      <a
-                        href={offer.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-                        title="View on Retailer Website"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-50">
+                    {offer.validUntil ? (
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        Valid until: {new Date(offer.validUntil).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-emerald-600 font-semibold">Active In-Store</span>
                     )}
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => onToggleCompare(deal)}
+                        className={`text-xs font-bold px-2.5 py-1 rounded-lg border transition-colors ${
+                          isCompared
+                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                            : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {isCompared ? 'Compared' : '+ Compare'}
+                      </button>
+
+                      <button
+                        onClick={() => onAddToList(product.name)}
+                        className="text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Basket</span>
+                      </button>
+
+                      {offer.sourceUrl && (
+                        <a
+                          href={offer.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                          title="View on Retailer Website"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
