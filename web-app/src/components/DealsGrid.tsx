@@ -58,6 +58,11 @@ export const DealsGrid: React.FC<DealsGridProps> = ({
   onToggleCompare,
   onAddToList
 }) => {
+  // Extract unique active retailers from current deals
+  const dynamicRetailers = Array.from(
+    new Map(deals.map(d => [d.store.retailerId, { id: d.store.retailerId, name: d.store.name.split(' ')[0] }])).values()
+  );
+
   return (
     <div className="space-y-4">
       {/* Supermarket Store Filter Tabs */}
@@ -75,11 +80,12 @@ export const DealsGrid: React.FC<DealsGridProps> = ({
               : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
           }`}
         >
-          All Supermarkets
+          All Supermarkets ({deals.length})
         </button>
 
-        {RETAILERS.map(ret => {
+        {dynamicRetailers.map(ret => {
           const isSelected = filters.selectedRetailers.includes(ret.id);
+          const storeDealCount = deals.filter(d => d.store.retailerId === ret.id).length;
           return (
             <button
               key={ret.id}
@@ -87,13 +93,14 @@ export const DealsGrid: React.FC<DealsGridProps> = ({
                 const updated = isSelected ? [] : [ret.id];
                 onChangeFilters({ ...filters, selectedRetailers: updated });
               }}
-              className={`text-xs px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shadow-2xs ${
+              className={`text-xs px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shadow-2xs flex items-center gap-1.5 ${
                 isSelected
                   ? 'bg-emerald-600 text-white shadow-emerald-700/30'
                   : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
             >
-              {ret.name}
+              <span>{ret.name}</span>
+              <span className="text-[10px] opacity-75 font-semibold">({storeDealCount})</span>
             </button>
           );
         })}

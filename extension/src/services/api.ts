@@ -4,13 +4,14 @@ import { FALLBACK_LOCATIONS, FALLBACK_DEALS_CATALOG, calculateDistance } from '.
 const API_BASE = 'http://localhost:4000/api';
 
 export async function searchLocations(query: string) {
-  const cleanQuery = query.trim().toLowerCase();
-  if (!cleanQuery) return FALLBACK_LOCATIONS.slice(0, 5);
+  const cleanQuery = query.trim();
+  if (!cleanQuery) return FALLBACK_LOCATIONS.slice(0, 8);
 
+  // 1. Try backend API first with timeout
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1500);
-    const res = await fetch(`${API_BASE}/location/search?query=${encodeURIComponent(query)}`, {
+    const timeoutId = setTimeout(() => controller.abort(), 1200);
+    const res = await fetch(`${API_BASE}/location/search?query=${encodeURIComponent(cleanQuery)}`, {
       signal: controller.signal
     });
     clearTimeout(timeoutId);
@@ -21,29 +22,60 @@ export async function searchLocations(query: string) {
       }
     }
   } catch {
-    // API offline, use instant client-side fallback
+    // API offline
   }
 
-  // Instant client-side matches
+  // 2. Global Real-Time OpenStreetMap Nominatim Geocoding (Worldwide Search)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&q=${encodeURIComponent(cleanQuery)}`,
+      {
+        headers: { 'Accept-Language': 'en' },
+        signal: controller.signal
+      }
+    );
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((item: any) => ({
+          address: item.display_name.split(',')[0],
+          formattedAddress: item.display_name,
+          city: item.address?.city || item.address?.town || item.address?.municipality || item.address?.state || item.display_name.split(',')[1] || 'City',
+          country: item.address?.country || 'Global',
+          countryCode: (item.address?.country_code || 'XX').toUpperCase(),
+          latitude: parseFloat(item.lat),
+          longitude: parseFloat(item.lon)
+        }));
+      }
+    }
+  } catch {
+    // Geocoder fallback
+  }
+
+  // 3. Fallback database match
+  const qLower = cleanQuery.toLowerCase();
   const matches = FALLBACK_LOCATIONS.filter(
     loc =>
-      loc.address.toLowerCase().includes(cleanQuery) ||
-      loc.city.toLowerCase().includes(cleanQuery) ||
-      loc.formattedAddress.toLowerCase().includes(cleanQuery)
+      loc.address.toLowerCase().includes(qLower) ||
+      loc.city.toLowerCase().includes(qLower) ||
+      loc.formattedAddress.toLowerCase().includes(qLower) ||
+      loc.country.toLowerCase().includes(qLower)
   );
 
   if (matches.length > 0) return matches;
 
-  // Synthesize address if user types custom
   return [
     {
-      address: query,
-      formattedAddress: `${query}, Lahore, Punjab, Pakistan`,
-      city: 'Lahore',
-      country: 'Pakistan',
-      countryCode: 'PK',
-      latitude: 31.4697,
-      longitude: 74.4107
+      address: cleanQuery,
+      formattedAddress: cleanQuery,
+      city: 'Global',
+      country: 'Worldwide',
+      countryCode: 'INT',
+      latitude: 50.1109,
+      longitude: 8.6821
     }
   ];
 }
@@ -82,7 +114,7 @@ export async function fetchOffers(params: {
 
     if (res.ok) {
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.results && data.results.length > 0) {
         return {
           deals: data.results as ProductDeal[],
           totalStores: data.totalStoresFound as number,
@@ -91,10 +123,13 @@ export async function fetchOffers(params: {
       }
     }
   } catch {
-    // API offline, use offline fallback dataset with live distance re-calculation
+    // API offline fallback
   }
 
-  // Filter fallback catalog
+  // Determine user region
+  const isGermany = params.lat > 47 && params.lat < 55 && params.lng > 5 && params.lng < 16;
+  const isUK = params.lat > 50 && params.lat < 60 && params.lng > -11 && params.lng < 2;
+
   const q = params.query ? params.query.toLowerCase().trim() : '';
   const filtered = FALLBACK_DEALS_CATALOG.map(deal => {
     const dist = calculateDistance(
@@ -111,12 +146,15 @@ export async function fetchOffers(params: {
       }
     };
   }).filter(deal => {
+    // Regional filter
+    if (isGermany && deal.pricing.currency !== 'EUR') return false;
+    if (isUK && deal.pricing.currency !== 'GBP') return false;
+    if (!isGermany && !isUK && (deal.pricing.currency === 'EUR' || deal.pricing.currency === 'GBP')) return false;
+
     // Radius filter
-    // Allow up to effective radius to ensure all city stores are reachable
-    const effectiveRadius = Math.max(params.radius || 15, 20);
+    const effectiveRadius = Math.max(params.radius || 15, 30);
     if (deal.store.distanceKm > effectiveRadius) return false;
 
-    // Query filter
     if (q) {
       const matchName = deal.product.name.toLowerCase().includes(q);
       const matchBrand = deal.product.brand.toLowerCase().includes(q);
@@ -124,17 +162,14 @@ export async function fetchOffers(params: {
       if (!matchName && !matchBrand && !matchCat) return false;
     }
 
-    // Category filter
     if (params.category && deal.product.category.toLowerCase() !== params.category.toLowerCase()) {
       return false;
     }
 
-    // Min discount filter
     if (params.minDiscount && deal.pricing.discountPercent < params.minDiscount) {
       return false;
     }
 
-    // Retailer filter
     if (params.retailers && params.retailers.length > 0) {
       if (!params.retailers.includes(deal.store.retailerId)) return false;
     }
@@ -142,7 +177,6 @@ export async function fetchOffers(params: {
     return true;
   });
 
-  // Sort
   filtered.sort((a, b) => {
     switch (params.sortBy) {
       case 'distance':
@@ -170,7 +204,7 @@ export async function fetchOffers(params: {
   };
 }
 
-export async function fetchBestDeals(lat: number, lng: number, radius = 10): Promise<ProductDeal[]> {
+export async function fetchBestDeals(lat: number, lng: number, radius = 15): Promise<ProductDeal[]> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 2000);
@@ -180,7 +214,7 @@ export async function fetchBestDeals(lat: number, lng: number, radius = 10): Pro
     clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
-      if (data.success) return data.results;
+      if (data.success && data.results && data.results.length > 0) return data.results;
     }
   } catch {
     // API offline
@@ -209,55 +243,59 @@ export async function optimizeShoppingList(
       if (data.success) return data;
     }
   } catch {
-    // API offline fallback for shopping list
+    // Fallback
   }
+
+  const isGermany = location.latitude > 47 && location.latitude < 55;
+  const isUK = location.latitude > 50 && location.latitude < 60 && location.longitude > -11 && location.longitude < 2;
+  const sym = isGermany ? '€' : isUK ? '£' : 'Rs.';
 
   return {
     success: true,
     location,
     totalItemsRequested: items.length,
     singleStoreBest: {
-      retailerId: 'metro-pk',
-      retailerName: 'Metro Cash & Carry',
-      storeAddress: 'Airport Road Branch, Cantt, Lahore',
-      distanceKm: 3.8,
-      totalCost: 8348,
+      retailerId: isGermany ? 'rewe-de' : isUK ? 'tesco-uk' : 'metro-pk',
+      retailerName: isGermany ? 'REWE City' : isUK ? 'Tesco Express' : 'Metro Cash & Carry',
+      storeAddress: isGermany ? 'Zeil 116, Frankfurt' : isUK ? 'Regent Street, London' : 'Airport Road, Cantt',
+      distanceKm: 1.4,
+      totalCost: isGermany ? 8.50 : isUK ? 9.20 : 8348,
       itemsFound: items.length,
       totalItems: items.length,
       missingItems: [],
       itemBreakdown: items.map(i => ({
         item: i.name,
         productName: i.name,
-        brand: 'Metro Deal',
-        price: 3299 * (i.quantity || 1),
-        regularPrice: 3850 * (i.quantity || 1),
-        savings: 551 * (i.quantity || 1)
+        brand: isGermany ? 'REWE Deal' : isUK ? 'Tesco Deal' : 'Metro Deal',
+        price: (isGermany ? 2.5 : isUK ? 2.8 : 3299) * (i.quantity || 1),
+        regularPrice: (isGermany ? 3.2 : isUK ? 3.5 : 3850) * (i.quantity || 1),
+        savings: (isGermany ? 0.7 : isUK ? 0.7 : 551) * (i.quantity || 1)
       }))
     },
     multiStoreOptimal: {
-      totalCost: 7648,
-      totalSavingsVsSingleStore: 700,
-      totalSavingsVsRegularPrice: 1200,
+      totalCost: isGermany ? 7.10 : isUK ? 7.80 : 7648,
+      totalSavingsVsSingleStore: isGermany ? 1.40 : isUK ? 1.40 : 700,
+      totalSavingsVsRegularPrice: isGermany ? 2.80 : isUK ? 3.00 : 1200,
       storeCount: 2,
       stores: [
         {
-          retailerId: 'metro-pk',
-          retailerName: 'Metro Cash & Carry',
-          storeAddress: 'Airport Road, Cantt',
-          distanceKm: 3.8,
-          subtotal: 4249,
+          retailerId: isGermany ? 'rewe-de' : isUK ? 'tesco-uk' : 'metro-pk',
+          retailerName: isGermany ? 'REWE City' : isUK ? 'Tesco Express' : 'Metro Cash & Carry',
+          storeAddress: isGermany ? 'Zeil 116, Frankfurt' : isUK ? 'Regent Street, London' : 'Airport Road, Cantt',
+          distanceKm: 1.4,
+          subtotal: isGermany ? 4.20 : isUK ? 4.50 : 4249,
           items: []
         },
         {
-          retailerId: 'al-fatah',
-          retailerName: 'Al-Fatah Supermarket',
-          storeAddress: 'DHA Phase 6 Flagship',
-          distanceKm: 1.4,
-          subtotal: 3399,
+          retailerId: isGermany ? 'aldi-de' : isUK ? 'sainsburys-uk' : 'al-fatah',
+          retailerName: isGermany ? 'ALDI SÜD' : isUK ? 'Sainsbury\'s' : 'Al-Fatah Supermarket',
+          storeAddress: isGermany ? 'Schillerstraße 12, Frankfurt' : isUK ? 'Holborn Circus, London' : 'DHA Phase 6 Flagship',
+          distanceKm: 1.8,
+          subtotal: isGermany ? 2.90 : isUK ? 3.30 : 3399,
           items: []
         }
       ]
     },
-    tradeoffRecommendation: 'Splitting across Metro and Al-Fatah saves Rs. 700 with minimal travel distance.'
+    tradeoffRecommendation: `Splitting across 2 supermarkets saves ${sym} ${isGermany ? '1.40' : isUK ? '1.40' : '700'} with minimal travel distance.`
   };
 }
