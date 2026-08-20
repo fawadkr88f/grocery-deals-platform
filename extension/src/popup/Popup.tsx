@@ -28,6 +28,7 @@ export const Popup: React.FC = () => {
   const [totalStores, setTotalStores] = useState(0);
   const [totalOffers, setTotalOffers] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadingStep, setLoadingStep] = useState('');
   const [isBestDealsActive, setIsBestDealsActive] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -62,8 +63,12 @@ export const Popup: React.FC = () => {
   }, []);
 
   // Fetch deals whenever location, debouncedQuery, category, or filters change
-  const loadDeals = async () => {
-    setLoading(true);
+  const loadDeals = async (isManualRefresh = false) => {
+    if (isManualRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setLoadingStep('Searching nearby supermarkets...');
 
     try {
@@ -93,6 +98,7 @@ export const Popup: React.FC = () => {
       console.error('Error loading deals:', err);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
       setLoadingStep('');
     }
   };
@@ -162,13 +168,15 @@ export const Popup: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 selection:bg-emerald-500 selection:text-white">
-      {/* Header */}
+      {/* Header with Refresh Now */}
       <Header
         onOpenShoppingList={() => setIsShoppingListOpen(true)}
         shoppingListCount={shoppingList.filter(i => i.checked).length}
         compareCount={comparedDeals.length}
         onOpenCompare={() => setIsCompareOpen(true)}
         onOpenOptions={handleOpenOptions}
+        onRefreshNow={() => loadDeals(true)}
+        isRefreshing={isRefreshing}
       />
 
       {/* Location Bar with Autocomplete, Popular Picks & Radius */}
@@ -180,13 +188,13 @@ export const Popup: React.FC = () => {
         active={isBestDealsActive}
       />
 
-      {/* Search Input Bar */}
-      <div className="p-3 bg-white border-b border-slate-100 sticky top-[57px] z-20 shadow-2xs">
+      {/* Optional Search Input Bar */}
+      <div className="p-3 bg-white border-b border-slate-100 sticky top-[53px] z-20 shadow-2xs">
         <div className="relative flex items-center">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
           <input
             type="text"
-            placeholder="Search products, brands (e.g. Cooking Oil, Dalda, Rice)..."
+            placeholder="Filter active discount catalog (or leave blank to view all)..."
             value={searchQuery}
             onChange={e => {
               setSearchQuery(e.target.value);
@@ -224,12 +232,12 @@ export const Popup: React.FC = () => {
         onChangeFilters={setFilters}
       />
 
-      {/* Results Container */}
+      {/* Results Container: Displays all discounted products */}
       <main className="flex-1 p-3">
         {loading ? (
           <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
             <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-            <div className="text-xs font-semibold text-slate-700">{loadingStep || 'Loading deals...'}</div>
+            <div className="text-xs font-semibold text-slate-700">{loadingStep || 'Loading all store discounts...'}</div>
             <div className="text-[10px] text-slate-400">Comparing prices across nearby supermarkets</div>
           </div>
         ) : viewMode === 'map' ? (
@@ -246,7 +254,7 @@ export const Popup: React.FC = () => {
             <div className="text-2xl">🛒</div>
             <h3 className="font-bold text-xs text-slate-800">No active offers found</h3>
             <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
-              Try increasing your search radius, selecting &quot;All Deals&quot;, or searching for common essentials like &quot;Cooking Oil&quot; or &quot;Milk&quot;.
+              Try increasing your search radius or clicking &quot;Refresh&quot;.
             </p>
             <button
               onClick={() => {

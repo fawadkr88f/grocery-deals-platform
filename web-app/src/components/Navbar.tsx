@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ShoppingBag, MapPin, Navigation, Search, Sparkles, ListOrdered, ChevronDown } from 'lucide-react';
+import { ShoppingBag, MapPin, Navigation, Search, Sparkles, ListOrdered, ChevronDown, RotateCw } from 'lucide-react';
 import { LocationState } from '../types';
 import { searchLocations } from '../services/api';
 import { FALLBACK_LOCATIONS } from '../services/fallbackData';
@@ -13,6 +13,9 @@ interface NavbarProps {
   compareCount: number;
   onOpenBasket: () => void;
   onOpenCompare: () => void;
+  onRefreshNow: () => void;
+  isRefreshing: boolean;
+  lastRefreshedTime: string;
 }
 
 const RADIUS_OPTIONS = [1, 2, 5, 10, 15, 25];
@@ -25,7 +28,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   shoppingListCount,
   compareCount,
   onOpenBasket,
-  onOpenCompare
+  onOpenCompare,
+  onRefreshNow,
+  isRefreshing,
+  lastRefreshedTime
 }) => {
   const [isLocDropdownOpen, setIsLocDropdownOpen] = useState(false);
   const [locInput, setLocInput] = useState('');
@@ -107,11 +113,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                   Grocery Deals
                 </span>
                 <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  App & PWA
+                  Live Radar
                 </span>
               </div>
               <p className="text-xs text-slate-400 font-medium leading-none mt-1">
-                Local Supermarket Price Finder
+                Updated {lastRefreshedTime}
               </p>
             </div>
           </div>
@@ -192,13 +198,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Global Search Bar */}
-        <div className="flex-1 max-w-xl w-full">
+        {/* Global Optional Search Bar */}
+        <div className="flex-1 max-w-lg w-full">
           <div className="relative flex items-center">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search 50+ grocery essentials (Cooking Oil, Rice, Milk, Eggs, Tea, Sugar, Atta, Meat)..."
+              placeholder="Filter current discount catalog (or leave blank for all discounts)..."
               value={searchQuery}
               onChange={e => onChangeSearch(e.target.value)}
               className="w-full text-xs pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-slate-800 text-white placeholder-slate-400 font-medium transition-all"
@@ -206,8 +212,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2.5">
+        {/* Action Buttons: Refresh Now + Compare + Smart Basket */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Refresh Now Button */}
+          <button
+            onClick={onRefreshNow}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs px-3.5 py-2 rounded-xl transition-all font-bold shadow-xs active:scale-95"
+            title="Force refresh store prices right now"
+          >
+            <RotateCw className={`w-3.5 h-3.5 text-emerald-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Refreshing...' : 'Refresh Now'}</span>
+          </button>
+
           {compareCount > 0 && (
             <button
               onClick={onOpenCompare}

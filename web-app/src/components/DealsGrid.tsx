@@ -1,9 +1,10 @@
 import React from 'react';
-import { ExternalLink, Navigation, CheckCircle2, Sparkles, Plus, ArrowUpDown } from 'lucide-react';
+import { ExternalLink, Navigation, CheckCircle2, Plus, ArrowUpDown, Store } from 'lucide-react';
 import { ProductDeal, FilterState } from '../types';
 
 interface DealsGridProps {
   deals: ProductDeal[];
+  allDealsCount: number;
   filters: FilterState;
   onChangeFilters: (f: FilterState) => void;
   selectedCategory?: string;
@@ -18,11 +19,19 @@ const CATEGORIES = [
   { id: 'Rice & Grains', label: '🍚 Rice, Atta & Pulses' },
   { id: 'Dairy', label: '🥛 Milk, Dairy & Eggs' },
   { id: 'Beverages', label: '🧃 Tea & Beverages' },
-  { id: 'Grocery', label: '🥫 Grocery, Sugar & Spices' },
+  { id: 'Grocery', label: '🥫 Grocery & Spices' },
   { id: 'Meat', label: '🥩 Meat & Poultry' },
   { id: 'Fresh Produce', label: '🥦 Fresh Produce' },
-  { id: 'Household', label: '🧴 Household Cleaners' },
+  { id: 'Household', label: '🧴 Cleaners & Detergents' },
   { id: 'Personal Care', label: '🧼 Personal Care' }
+];
+
+const RETAILERS = [
+  { id: 'carrefour-pk', name: 'Carrefour' },
+  { id: 'metro-pk', name: 'Metro' },
+  { id: 'al-fatah', name: 'Al-Fatah' },
+  { id: 'imtiaz-pk', name: 'Imtiaz' },
+  { id: 'jalal-sons', name: 'Jalal Sons' }
 ];
 
 export const DealsGrid: React.FC<DealsGridProps> = ({
@@ -37,6 +46,45 @@ export const DealsGrid: React.FC<DealsGridProps> = ({
 }) => {
   return (
     <div className="space-y-4">
+      {/* Supermarket Store Filter Tabs */}
+      <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider px-2 flex items-center gap-1 shrink-0">
+          <Store className="w-3.5 h-3.5 text-slate-500" />
+          <span>Stores:</span>
+        </span>
+
+        <button
+          onClick={() => onChangeFilters({ ...filters, selectedRetailers: [] })}
+          className={`text-xs px-3 py-1.5 rounded-xl font-extrabold whitespace-nowrap transition-all shadow-2xs ${
+            filters.selectedRetailers.length === 0
+              ? 'bg-emerald-600 text-white shadow-emerald-700/30'
+              : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          All Supermarkets
+        </button>
+
+        {RETAILERS.map(ret => {
+          const isSelected = filters.selectedRetailers.includes(ret.id);
+          return (
+            <button
+              key={ret.id}
+              onClick={() => {
+                const updated = isSelected ? [] : [ret.id];
+                onChangeFilters({ ...filters, selectedRetailers: updated });
+              }}
+              className={`text-xs px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all shadow-2xs ${
+                isSelected
+                  ? 'bg-emerald-600 text-white shadow-emerald-700/30'
+                  : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              {ret.name}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Category Filter Pills */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
         <button
@@ -47,7 +95,7 @@ export const DealsGrid: React.FC<DealsGridProps> = ({
               : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
           }`}
         >
-          All Deals ({deals.length})
+          All Product Categories ({deals.length})
         </button>
         {CATEGORIES.map(cat => (
           <button
@@ -67,12 +115,12 @@ export const DealsGrid: React.FC<DealsGridProps> = ({
       {/* Filter and Sort Toolbar */}
       <div className="bg-white p-3.5 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 shadow-xs">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-900">
-            {deals.length} deals available
+          <span className="text-xs font-black text-slate-900">
+            {deals.length} Active Discounted Products
           </span>
           <span className="text-slate-300">•</span>
-          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-            Sorted by Top Discount %
+          <span className="text-xs font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-md">
+            🔥 Ranked by Top Discount %
           </span>
         </div>
 
@@ -117,9 +165,9 @@ export const DealsGrid: React.FC<DealsGridProps> = ({
       {deals.length === 0 ? (
         <div className="py-20 text-center bg-white rounded-3xl border border-slate-200 p-8 space-y-3">
           <div className="text-4xl">🛒</div>
-          <h3 className="font-bold text-base text-slate-900">No active offers matching your filter</h3>
+          <h3 className="font-bold text-base text-slate-900">No active offers matching this filter</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Try expanding your search radius or selecting &quot;All Deals&quot;.
+            Try resetting store filters or expanding search radius.
           </p>
         </div>
       ) : (
@@ -136,7 +184,7 @@ export const DealsGrid: React.FC<DealsGridProps> = ({
                 <div>
                   {/* Top Supermarket Header */}
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg truncate">
+                    <span className="text-xs font-extrabold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg truncate">
                       {store.name}
                     </span>
                     <div className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">
@@ -184,7 +232,7 @@ export const DealsGrid: React.FC<DealsGridProps> = ({
                             {pricing.currency} {pricing.regularPrice.toLocaleString()}
                           </span>
                         )}
-                        <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
+                        <span className="text-[11px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md">
                           {pricing.discountPercent}% OFF
                         </span>
                       </div>

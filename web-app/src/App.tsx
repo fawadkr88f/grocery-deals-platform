@@ -21,6 +21,8 @@ export const App: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>();
   const [deals, setDeals] = useState<ProductDeal[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshedTime, setLastRefreshedTime] = useState('Just now');
 
   const [filters, setFilters] = useState<FilterState>({
     selectedRetailers: [],
@@ -44,9 +46,14 @@ export const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  useEffect(() => {
-    const load = async () => {
+  const loadDeals = async (showRefreshSpin = false) => {
+    if (showRefreshSpin) {
+      setIsRefreshing(true);
+    } else {
       setLoading(true);
+    }
+
+    try {
       const res = await fetchOffers({
         lat: location.latitude,
         lng: location.longitude,
@@ -58,9 +65,18 @@ export const App: React.FC = () => {
         retailers: filters.selectedRetailers
       });
       setDeals(res.deals);
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setLastRefreshedTime(timeStr);
+    } catch (err) {
+      console.error('Error fetching deals:', err);
+    } finally {
       setLoading(false);
-    };
-    load();
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDeals();
   }, [
     location.latitude,
     location.longitude,
@@ -71,6 +87,10 @@ export const App: React.FC = () => {
     filters.sortBy,
     filters.selectedRetailers.join(',')
   ]);
+
+  const handleRefreshNow = () => {
+    loadDeals(true);
+  };
 
   const handleToggleCompare = (deal: ProductDeal) => {
     const exists = comparedDeals.some(d => d.id === deal.id);
@@ -113,6 +133,9 @@ export const App: React.FC = () => {
         compareCount={comparedDeals.length}
         onOpenBasket={() => setIsBasketOpen(true)}
         onOpenCompare={() => setIsCompareOpen(true)}
+        onRefreshNow={handleRefreshNow}
+        isRefreshing={isRefreshing}
+        lastRefreshedTime={lastRefreshedTime}
       />
 
       {/* Hero Callout Banner */}
@@ -120,28 +143,23 @@ export const App: React.FC = () => {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div>
             <span className="text-emerald-400 text-xs font-bold uppercase tracking-wider block mb-1">
-              📍 Prices compared live within {location.radiusKm} km of {location.address}
+              📍 Real-Time Discount Radar • Showing all discounted items within {location.radiusKm} km of {location.address}
             </span>
             <h1 className="text-xl md:text-2xl font-black tracking-tight text-white">
-              Supermarket Grocery Deals & Price Comparison
+              All Discounted Supermarket Products Near You
             </h1>
             <p className="text-xs md:text-sm text-slate-300 mt-1 max-w-2xl">
-              Compare Cooking Oil, Wheat Atta, Basmati Rice, Milk, Eggs, Tea, and daily essentials across Carrefour, Metro, Al-Fatah, Imtiaz, and Jalal Sons.
+              Browsing all discounted products from Carrefour, Metro, Al-Fatah, Imtiaz, and Jalal Sons. Ranked automatically from highest discount % to lowest.
             </p>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
             <button
-              onClick={async () => {
-                setSearchQuery('');
-                setSelectedCategory(undefined);
-                const top = await fetchBestDeals(location.latitude, location.longitude, location.radiusKm);
-                setDeals(top);
-              }}
+              onClick={handleRefreshNow}
               className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-md transition-transform hover:scale-105"
             >
               <Flame className="w-4 h-4 text-orange-600 animate-bounce" />
-              <span>🔥 Best Deals Near Me</span>
+              <span>🔥 Refresh Live Supermarket Deals</span>
             </button>
           </div>
         </div>
@@ -154,6 +172,7 @@ export const App: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             <DealsGrid
               deals={deals}
+              allDealsCount={deals.length}
               filters={filters}
               onChangeFilters={setFilters}
               selectedCategory={selectedCategory}
